@@ -345,8 +345,12 @@ class SimulationEnvironment:
         if not ignore_collisions:
             collision, collision_points = self._detect_collisions()
             if collision:
-                if self.time_since_collision < 10:
-                    self._reset_robot(center=True)
+                # Only reset to center if we've been stuck (colliding repeatedly)
+                # Otherwise, just back up a bit from the collision
+                if self.time_since_collision < 5:
+                    # If we've collided multiple times in quick succession, we might be stuck
+                    # Just back up instead of resetting to center
+                    self._reset_robot(collision_points=collision_points)
                     self.time_since_collision = 0
                 else:
                     self._reset_robot(collision_points=collision_points)
