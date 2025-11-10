@@ -1,4 +1,4 @@
-from Helper import vector, PI
+from Helper import vector, PI, angle
 
 import noise
 import random
@@ -66,23 +66,26 @@ class Seek():
 
     def get_action(self, current_position, current_orientation):
         seek_vector = self.target_position - current_position
-        # if la.norm(seek_vector) < 50:
-        #     print('GOAL')
-        #     pdb.set_trace()
-        # print(la.norm(seek_vector))
-
-        steering_vector = seek_vector - vector(current_orientation)
+        
+        # Calculate the desired angle to the goal
+        desired_angle = angle(seek_vector)
+        
+        # Calculate the angle difference (normalized to [-pi, pi])
+        angle_diff = desired_angle - current_orientation
+        # Normalize to [-pi, pi]
+        angle_diff = (angle_diff + PI) % (2 * PI) - PI
 
         action_space = np.arange(-5,6)
         min_diff = 9999999
         min_a = 0
         for a in action_space:
-            steering_force = vector(a * self.wander_range + current_orientation)
-            diff = la.norm(steering_force - steering_vector)
+            # Calculate the angle this action would produce
+            action_angle = a * self.wander_range
+            # Calculate the difference between desired angle change and action angle
+            diff = abs(angle_diff - action_angle)
             if diff <= min_diff:
                 min_a = a
                 min_diff = diff
-
 
         steering_force = vector(min_a * self.wander_range + current_orientation)
 
