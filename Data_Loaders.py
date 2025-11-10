@@ -21,10 +21,9 @@ class Nav_Dataset(dataset.Dataset):
     def __getitem__(self, idx):
         if not isinstance(idx, int):
             idx = idx.item()
+        # Use actual training data instead of dummy values
         n = self.normalized_data[idx, 0:-1]
         y = self.normalized_data[idx, [-1]]
-        n = np.array([150.00, 150.00, 150.00, 150.00, 150.00, 0.00], dtype=np.float32)
-        y = np.array([1.00], dtype=np.float32)
 
         x_tensor = torch.from_numpy(n).float()
         y_tensor = torch.from_numpy(y).float()
