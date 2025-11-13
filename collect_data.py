@@ -50,5 +50,10 @@ def collect_training_data(total_actions):
 
 
 if __name__ == '__main__':
-    total_actions = 50000
+    # Collect more training data for better model accuracy
+    # Current: 50,000 samples, increasing to 100,000 for better coverage
+    total_actions = 100000
+    print(f"Collecting {total_actions} training samples...")
+    print("This may take a while. Progress will be shown.")
     collect_training_data(total_actions)
+    print(f"\nTraining data collection complete! Collected {total_actions} samples.")
