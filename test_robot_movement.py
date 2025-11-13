@@ -88,8 +88,10 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
     stuck_counter = 0
     iteration = 0
     total_collisions = 0
-    collision_threshold = 0.25  # Start with conservative threshold
+    collision_threshold = 0.3  # Slightly higher initial threshold for more actions
     consecutive_no_actions = 0  # Track consecutive iterations with no safe actions
+    last_distance_to_goal = float('inf')
+    no_progress_counter = 0
     
     initial_position = sim_env.robot.body.position
     initial_goal = sim_env.goal_body.position
@@ -108,6 +110,19 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
         distance_to_goal = la.norm(seek_vector)
         distances_to_goal.append(distance_to_goal)
         
+        # Check if making progress toward goal
+        if distance_to_goal < last_distance_to_goal - 5:  # Making progress
+            no_progress_counter = 0
+        else:
+            no_progress_counter += 1
+        
+        last_distance_to_goal = distance_to_goal
+        
+        # If not making progress for a while, increase threshold
+        if no_progress_counter > 30:
+            collision_threshold = min(0.8, collision_threshold + 0.1)
+            no_progress_counter = 0
+        
         current_position = sim_env.robot.body.position
         positions.append((current_position.x, current_position.y))
         goal_positions.append((sim_env.goal_body.position.x, sim_env.goal_body.position.y))
@@ -116,6 +131,9 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
             sim_env.move_goal()
             steering_behavior.update_goal(sim_env.goal_body.position)
             goals_reached += 1
+            collision_threshold = 0.3  # Reset threshold on goal reach
+            no_progress_counter = 0
+            last_distance_to_goal = float('inf')
             if verbose:
                 print(f"Iteration {iteration}: Goal reached! ({goals_reached}/{goals_to_reach})")
             continue
@@ -142,9 +160,9 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
         if len(actions_available) == 0:
             # If no actions are available, gradually increase threshold to allow more actions
             consecutive_no_actions += 1
-            if consecutive_no_actions > 5:
+            if consecutive_no_actions > 3:  # Faster threshold increase
                 # Gradually increase threshold when stuck
-                collision_threshold = min(0.75, collision_threshold + 0.1)
+                collision_threshold = min(0.85, collision_threshold + 0.15)
                 consecutive_no_actions = 0
             else:
                 # Pick actions with lowest collision predictions
@@ -152,16 +170,17 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
                 if len(valid_predictions) == 0:
                     valid_predictions = action_predictions
                 sorted_actions = sorted(valid_predictions.items(), key=lambda x: x[1])
-                # Take the top 3 safest actions
-                safest_actions = [a[0] for a in sorted_actions[:3]]
+                # Take the top 5 safest actions (more options)
+                safest_actions = [a[0] for a in sorted_actions[:5]]
                 actions_available = safest_actions
             
             turn_around_events.append(iteration)
             # Only turn around if we've been stuck for a while
-            if stuck_counter > 20:
+            if stuck_counter > 15:  # Turn around sooner
                 sim_env.turn_robot_around()
                 stuck_counter = 0
                 last_position = None
+                collision_threshold = 0.5  # Reset to moderate threshold after turn
                 if verbose:
                     print(f"Iteration {iteration}: No safe actions, threshold={collision_threshold:.2f}, turning around")
                 continue
@@ -171,8 +190,8 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
             # Reset counters when we have safe actions
             consecutive_no_actions = 0
             # Gradually lower threshold back to conservative when we have safe actions
-            if collision_threshold > 0.25:
-                collision_threshold = max(0.25, collision_threshold - 0.05)
+            if collision_threshold > 0.3:
+                collision_threshold = max(0.3, collision_threshold - 0.03)
         
         # Find the action closest to the desired steering direction
         if len(actions_available) == 0:
@@ -199,13 +218,14 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
         # Check if robot is stuck
         if last_position is not None:
             position_change = la.norm(current_position - last_position)
-            if position_change < 5.0:
+            if position_change < 3.0:  # More sensitive stuck detection
                 stuck_counter += 1
-                if stuck_counter > 10:
+                if stuck_counter > 8:  # Turn around sooner when stuck
                     stuck_events.append(iteration)
                     sim_env.turn_robot_around()
                     stuck_counter = 0
                     last_position = None
+                    collision_threshold = 0.5  # Reset threshold
                     if verbose:
                         print(f"Iteration {iteration}: Robot stuck, forcing turn")
                     continue
@@ -221,6 +241,8 @@ def test_robot_movement(max_iterations=1000, goals_to_reach=2, verbose=True):
                 collisions.append(iteration)
                 stuck_counter = 0
                 last_position = None
+                # Slightly increase threshold after collision to be more permissive
+                collision_threshold = min(0.6, collision_threshold + 0.05)
                 break
         
         # Print progress every 50 iterations
