@@ -57,8 +57,8 @@ def train_model(no_epochs):
 
 
 if __name__ == '__main__':
-    no_epochs = 50
+    no_epochs = 100  # Train for more epochs for better accuracy
     start = time.time()
     train_model(no_epochs)
     end = time.time()
-    print(end - start)
+    print(f"Total training time: {end - start:.2f} seconds")
